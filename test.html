@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Test</title>
+</head>
+<body>
+    <h1>Game Test Page</h1>
+    <p>Open the browser console (F12) and then open index.html to see debugging messages.</p>
+    <p>If you see errors, they'll help identify what's wrong.</p>
+    
+    <h2>Quick Test:</h2>
+    <button onclick="testGame()">Test Game Elements</button>
+    <div id="testResults"></div>
+
+    <script>
+        function testGame() {
+            const results = document.getElementById('testResults');
+            let output = '<h3>Test Results:</h3>';
+            
+            // Test if we can access the game files
+            try {
+                fetch('./index.html')
+                    .then(response => {
+                        if (response.ok) {
+                            output += '<p>✅ index.html is accessible</p>';
+                        } else {
+                            output += '<p>❌ index.html not found</p>';
+                        }
+                        return fetch('./script.js');
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            output += '<p>✅ script.js is accessible</p>';
+                        } else {
+                            output += '<p>❌ script.js not found</p>';
+                        }
+                        return fetch('./style.css');
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            output += '<p>✅ style.css is accessible</p>';
+                        } else {
+                            output += '<p>❌ style.css not found</p>';
+                        }
+                        results.innerHTML = output;
+                    })
+                    .catch(error => {
+                        output += `<p>❌ Error testing files: ${error}</p>`;
+                        results.innerHTML = output;
+                    });
+            } catch (error) {
+                output += `<p>❌ Error: ${error}</p>`;
+                results.innerHTML = output;
+            }
+        }
+    </script>
+</body>
+</html>

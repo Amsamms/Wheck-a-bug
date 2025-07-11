@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Whack-a-Bug! 🪲</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .game-header {
+            position: absolute;
+            top: 10px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            padding: 10px;
+            font-size: 1.2rem;
+            z-index: 10;
+        }
+
+        .score-item {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 16px;
+            border-radius: 8px;
+            display: flex;
+            gap: 8px;
+            margin: 2px;
+            min-width: 100px;
+            justify-content: center;
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            padding: 20px;
+            max-width: 90vw;
+            width: 100%;
+            max-height: 60vh;
+            margin-top: 80px;
+        }
+
+        .hole {
+            width: min(15vw, 100px);
+            height: min(15vw, 100px);
+            background: radial-gradient(circle at center, #666 0%, #333 100%);
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.5);
+            transition: transform 0.1s;
+            touch-action: manipulation;
+        }
+
+        .hole:hover {
+            transform: scale(0.95);
+        }
+
+        .bug {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: min(8vw, 2.5rem);
+            transition: transform 0.3s ease-out;
+            cursor: pointer;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .bug.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .bug.red { color: #ff4444; }
+        .bug.gold { color: #ffd700; text-shadow: 0 0 10px #ffd700; }
+        .bug.green { color: #44ff44; }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .overlay-content {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 90vw;
+            width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .overlay h1, .overlay h2 {
+            margin-bottom: 15px;
+            font-size: 2rem;
+        }
+
+        .rules {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        .rules h3 {
+            color: #ffd700;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .rules ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .rules li {
+            margin: 8px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .rules li::before {
+            content: "•";
+            color: #4CAF50;
+            position: absolute;
+            left: 0;
+        }
+
+        @media (max-width: 480px) {
+            .game-header {
+                font-size: 1rem;
+                padding: 5px;
+                top: 5px;
+            }
+            
+            .score-item {
+                padding: 6px 12px;
+                min-width: 80px;
+                font-size: 0.9rem;
+            }
+            
+            .overlay h1, .overlay h2 {
+                font-size: 1.5rem;
+            }
+            
+            .rules {
+                font-size: 0.8rem;
+            }
+        }
+
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 10px;
+        }
+
+        .btn:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+
+        .score-popup {
+            position: absolute;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            pointer-events: none;
+            animation: popup 1s ease-out forwards;
+            z-index: 1000;
+        }
+
+        @keyframes popup {
+            0% {
+                transform: translateY(0) scale(0.5);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-50px) scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-header">
+        <div class="score-item">
+            <span>Score:</span>
+            <span id="score">0</span>
+        </div>
+        <div class="score-item">
+            <span>Misses:</span>
+            <span id="misses">0</span>
+        </div>
+        <div class="score-item">
+            <span>Escaped:</span>
+            <span id="escaped">0</span>
+        </div>
+        <div class="score-item">
+            <span>High Score:</span>
+            <span id="highScore">0</span>
+        </div>
+        <div class="score-item">
+            <span>Speed:</span>
+            <span id="speed">1x</span>
+        </div>
+    </div>
+
+    <div class="game-grid" id="gameGrid">
+        <!-- Holes will be created by JavaScript -->
+    </div>
+
+    <!-- Start Overlay -->
+    <div class="overlay" id="startOverlay">
+        <div class="overlay-content">
+            <h1>Whack-a-Bug! 🪲</h1>
+            
+            <div class="rules">
+                <h3>📋 Game Rules</h3>
+                <ul>
+                    <li>🪲 Hit red bugs to score points (+10)</li>
+                    <li>🌟 Hit gold bugs for bonus points (+25)</li>
+                    <li>🌸 Avoid green bugs (-10 points)</li>
+                    <li>⚠️ 5 misses (clicking empty holes) = Game Over</li>
+                    <li>⏰ 12 bugs escape without being hit = Game Over</li>
+                    <li>🚀 Game gets faster as you score more points</li>
+                    <li>♾️ Play endlessly until you lose!</li>
+                </ul>
+            </div>
+            
+            <button class="btn" onclick="startGame()">Start Game</button>
+        </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div class="overlay hidden" id="gameOverlay">
+        <div class="overlay-content">
+            <h2>Game Over!</h2>
+            <p id="gameOverReason">You lost!</p>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <p>High Score: <span id="finalHighScore">0</span></p>
+            <p>Bugs Hit: <span id="finalBugsHit">0</span></p>
+            <button class="btn" onclick="startGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Game variables
+        let score = 0;
+        let misses = 0;
+        let escaped = 0;
+        let bugsHit = 0;
+        let gameActive = false;
+        let spawnTimer = null;
+        let currentSpeed = 1;
+        let baseSpawnDelay = 1500;
+        let baseBugDuration = 2000;
+
+        // Get DOM elements
+        const scoreEl = document.getElementById('score');
+        const missesEl = document.getElementById('misses');
+        const escapedEl = document.getElementById('escaped');
+        const speedEl = document.getElementById('speed');
+        const highScoreEl = document.getElementById('highScore');
+        const startOverlay = document.getElementById('startOverlay');
+        const gameOverlay = document.getElementById('gameOverlay');
+        const finalScoreEl = document.getElementById('finalScore');
+        const finalHighScoreEl = document.getElementById('finalHighScore');
+        const finalBugsHitEl = document.getElementById('finalBugsHit');
+        const gameOverReasonEl = document.getElementById('gameOverReason');
+        const gameGrid = document.getElementById('gameGrid');
+
+        // Bug types
+        const bugTypes = [
+            { emoji: '🪲', class: 'red', points: 10, probability: 0.6 },
+            { emoji: '🌟', class: 'gold', points: 25, probability: 0.2 },
+            { emoji: '🌸', class: 'green', points: -10, probability: 0.2 }
+        ];
+
+        // Initialize game
+        function init() {
+            console.log('Initializing game...');
+            
+            // Load high score
+            const savedHighScore = localStorage.getItem('whackBugHighScore') || '0';
+            highScoreEl.textContent = savedHighScore;
+            finalHighScoreEl.textContent = savedHighScore;
+            
+            // Create holes
+            createHoles();
+            
+            console.log('Game initialized successfully');
+        }
+
+        // Create game holes
+        function createHoles() {
+            gameGrid.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const hole = document.createElement('div');
+                hole.className = 'hole';
+                hole.dataset.index = i;
+                
+                // Add click handler for hole (miss detection)
+                hole.addEventListener('click', function(e) {
+                    if (gameActive && !this.querySelector('.bug')) {
+                        handleMiss();
+                    }
+                });
+                
+                gameGrid.appendChild(hole);
+            }
+            console.log('Created 9 holes');
+        }
+
+        // Handle miss (clicking empty hole)
+        function handleMiss() {
+            misses++;
+            updateMisses();
+            
+            // Show miss popup
+            showMissPopup();
+            
+            console.log(`Miss! Total misses: ${misses}`);
+            
+            if (misses >= 5) {
+                endGame('Too many misses! 😵');
+            }
+        }
+
+        // Show miss popup
+        function showMissPopup() {
+            const popup = document.createElement('div');
+            popup.className = 'score-popup';
+            popup.textContent = 'MISS!';
+            popup.style.color = '#ff4444';
+            popup.style.left = '50%';
+            popup.style.top = '50%';
+            popup.style.transform = 'translate(-50%, -50%)';
+            
+            document.body.appendChild(popup);
+            
+            setTimeout(() => {
+                popup.remove();
+            }, 1000);
+        }
+
+        // Start game
+        function startGame() {
+            console.log('Starting new game...');
+            
+            // Reset game state
+            score = 0;
+            misses = 0;
+            escaped = 0;
+            bugsHit = 0;
+            gameActive = true;
+            currentSpeed = 1;
+            
+            // Clear any existing timers
+            if (spawnTimer) clearTimeout(spawnTimer);
+            
+            // Clear all bugs
+            document.querySelectorAll('.bug').forEach(bug => bug.remove());
+            
+            // Update UI
+            updateScore();
+            updateMisses();
+            updateEscaped();
+            updateSpeed();
+            
+            // Hide overlays
+            startOverlay.classList.add('hidden');
+            gameOverlay.classList.add('hidden');
+            
+            // Start spawning bugs
+            spawnBug();
+            
+            console.log('Game started!');
+        }
+
+        // Calculate current spawn delay based on speed
+        function getCurrentSpawnDelay() {
+            return Math.max(300, baseSpawnDelay / currentSpeed);
+        }
+
+        // Calculate current bug duration based on speed
+        function getCurrentBugDuration() {
+            return Math.max(800, baseBugDuration / currentSpeed);
+        }
+
+        // Update speed based on score
+        function updateGameSpeed() {
+            const newSpeed = 1 + Math.floor(score / 50) * 0.3;
+            if (newSpeed !== currentSpeed) {
+                currentSpeed = newSpeed;
+                updateSpeed();
+                console.log(`Speed increased to ${currentSpeed.toFixed(1)}x`);
+            }
+        }
+
+        // Spawn a bug
+        function spawnBug() {
+            if (!gameActive) return;
+            
+            // Get available holes (holes without bugs)
+            const holes = Array.from(document.querySelectorAll('.hole'));
+            const availableHoles = holes.filter(hole => !hole.querySelector('.bug'));
+            
+            if (availableHoles.length === 0) {
+                // Try again in 200ms if no holes available
+                spawnTimer = setTimeout(spawnBug, 200);
+                return;
+            }
+            
+            // Pick random hole
+            const randomHole = availableHoles[Math.floor(Math.random() * availableHoles.length)];
+            
+            // Pick random bug type
+            const randomNum = Math.random();
+            let selectedBug = bugTypes[0]; // default to red bug
+            
+            let cumulative = 0;
+            for (const bugType of bugTypes) {
+                cumulative += bugType.probability;
+                if (randomNum <= cumulative) {
+                    selectedBug = bugType;
+                    break;
+                }
+            }
+            
+            // Create bug element
+            const bug = document.createElement('div');
+            bug.className = `bug ${selectedBug.class}`;
+            bug.textContent = selectedBug.emoji;
+            bug.dataset.points = selectedBug.points;
+            
+            // Add click handler
+            bug.addEventListener('click', function(e) {
+                e.stopPropagation();
+                hitBug(this);
+            });
+            
+            // Add to hole
+            randomHole.appendChild(bug);
+            
+            // Show bug
+            setTimeout(() => {
+                bug.classList.add('show');
+            }, 50);
+            
+            // Hide bug after duration
+            const bugDuration = getCurrentBugDuration();
+            const hideTimeout = setTimeout(() => {
+                if (bug.parentNode && gameActive) {
+                    // Bug escaped
+                    escaped++;
+                    updateEscaped();
+                    hideBug(bug);
+                    
+                    console.log(`Bug escaped! Total escaped: ${escaped}`);
+                    
+                    if (escaped >= 12) {
+                        endGame('Too many bugs escaped! 🏃‍♂️');
+                    }
+                }
+            }, bugDuration);
+            
+            // Store timeout ID for cleanup
+            bug.dataset.timeoutId = hideTimeout;
+            
+            // Schedule next bug spawn
+            const nextSpawnDelay = getCurrentSpawnDelay();
+            spawnTimer = setTimeout(spawnBug, nextSpawnDelay);
+            
+            console.log(`Spawned ${selectedBug.class} bug in hole ${randomHole.dataset.index}, will hide in ${bugDuration}ms, next spawn in ${nextSpawnDelay}ms`);
+        }
+
+        // Hide a bug
+        function hideBug(bug) {
+            bug.classList.remove('show');
+            setTimeout(() => {
+                if (bug.parentNode) {
+                    bug.remove();
+                }
+            }, 300);
+        }
+
+        // Hit a bug
+        function hitBug(bug) {
+            if (!gameActive) return;
+            
+            const points = parseInt(bug.dataset.points);
+            score += points;
+            bugsHit++;
+            updateScore();
+            
+            // Clear the escape timeout
+            if (bug.dataset.timeoutId) {
+                clearTimeout(parseInt(bug.dataset.timeoutId));
+            }
+            
+            // Update game speed
+            updateGameSpeed();
+            
+            // Show score popup
+            showScorePopup(bug, points);
+            
+            // Remove bug
+            hideBug(bug);
+            
+            console.log(`Hit ${bug.className} bug for ${points} points. Total score: ${score}, bugs hit: ${bugsHit}`);
+        }
+
+        // Show score popup
+        function showScorePopup(bug, points) {
+            const popup = document.createElement('div');
+            popup.className = 'score-popup';
+            popup.textContent = points > 0 ? `+${points}` : `${points}`;
+            popup.style.color = points > 0 ? '#4CAF50' : '#ff4444';
+            
+            const rect = bug.getBoundingClientRect();
+            popup.style.left = rect.left + rect.width / 2 + 'px';
+            popup.style.top = rect.top + 'px';
+            
+            document.body.appendChild(popup);
+            
+            setTimeout(() => {
+                popup.remove();
+            }, 1000);
+        }
+
+        // Update UI functions
+        function updateScore() {
+            scoreEl.textContent = score;
+        }
+
+        function updateMisses() {
+            missesEl.textContent = misses;
+        }
+
+        function updateEscaped() {
+            escapedEl.textContent = escaped;
+        }
+
+        function updateSpeed() {
+            speedEl.textContent = currentSpeed.toFixed(1) + 'x';
+        }
+
+        // End game
+        function endGame(reason) {
+            console.log('Game ended:', reason, 'Final score:', score);
+            
+            gameActive = false;
+            
+            // Clear timers
+            if (spawnTimer) clearTimeout(spawnTimer);
+            
+            // Clear all bug timeouts
+            document.querySelectorAll('.bug').forEach(bug => {
+                if (bug.dataset.timeoutId) {
+                    clearTimeout(parseInt(bug.dataset.timeoutId));
+                }
+            });
+            
+            // Remove all bugs
+            document.querySelectorAll('.bug').forEach(bug => bug.remove());
+            
+            // Update high score
+            const currentHighScore = parseInt(localStorage.getItem('whackBugHighScore') || '0');
+            if (score > currentHighScore) {
+                localStorage.setItem('whackBugHighScore', score.toString());
+                highScoreEl.textContent = score;
+                finalHighScoreEl.textContent = score;
+                console.log('New high score!', score);
+            } else {
+                finalHighScoreEl.textContent = currentHighScore;
+            }
+            
+            // Show final stats
+            finalScoreEl.textContent = score;
+            finalBugsHitEl.textContent = bugsHit;
+            gameOverReasonEl.textContent = reason;
+            
+            // Show game over overlay
+            gameOverlay.classList.remove('hidden');
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', init);
+        
+        // Prevent context menu on mobile
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        
+        console.log('Whack-a-Bug script loaded');
+    </script>
+</body>
+</html> 

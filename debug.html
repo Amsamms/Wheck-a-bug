@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Whack-a-Bug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: white;
+            padding: 20px;
+        }
+        .debug-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            padding: 20px;
+            max-width: 600px;
+            margin: 20px auto;
+        }
+        .hole {
+            width: 100px;
+            height: 100px;
+            background: #4a4a4a;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid #666;
+        }
+        .target {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            transition: transform 0.3s ease-out;
+            transform: translateY(100%);
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+        .target.up {
+            transform: translateY(0);
+        }
+        .bug { color: #ff4444; }
+        .friendly { color: #44ff44; }
+        .golden { color: #ffd700; }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .debug-info {
+            background: #333;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <h1>Debug Whack-a-Bug Game</h1>
+        
+        <div class="debug-info">
+            <div>Game Active: <span id="gameActive">false</span></div>
+            <div>Time Left: <span id="timeLeft">30</span></div>
+            <div>Current Targets: <span id="currentTargets">0</span></div>
+            <div>Last Action: <span id="lastAction">None</span></div>
+        </div>
+
+        <button onclick="startDebugGame()">Start Game</button>
+        <button onclick="spawnTestTarget()">Spawn Test Target</button>
+        <button onclick="clearAllTargets()">Clear All</button>
+        <button onclick="toggleGameActive()">Toggle Game Active</button>
+
+        <div class="game-grid" id="gameGrid">
+            <!-- Holes will be generated -->
+        </div>
+
+        <div class="debug-info">
+            <h3>Console Output:</h3>
+            <div id="consoleOutput" style="height: 200px; overflow-y: auto; background: #222; padding: 10px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Debug console
+        function debugLog(message) {
+            console.log(message);
+            const output = document.getElementById('consoleOutput');
+            output.innerHTML += message + '<br>';
+            output.scrollTop = output.scrollHeight;
+            document.getElementById('lastAction').textContent = message;
+        }
+
+        // Game variables
+        let gameActive = false;
+        let timeLeft = 30;
+        let currentTargets = new Set();
+        let spawnInterval = null;
+
+        // Target types
+        const targetTypes = {
+            bug: { emoji: '🪲', class: 'bug' },
+            friendly: { emoji: '🌸', class: 'friendly' },
+            golden: { emoji: '🌟', class: 'golden' }
+        };
+
+        // Initialize grid
+        function initGrid() {
+            const grid = document.getElementById('gameGrid');
+            grid.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const hole = document.createElement('div');
+                hole.className = 'hole';
+                hole.dataset.index = i;
+                hole.onclick = () => debugLog(`Clicked hole ${i}`);
+                grid.appendChild(hole);
+            }
+            debugLog('Grid initialized with 9 holes');
+        }
+
+        // Update debug info
+        function updateDebugInfo() {
+            document.getElementById('gameActive').textContent = gameActive;
+            document.getElementById('timeLeft').textContent = timeLeft;
+            document.getElementById('currentTargets').textContent = currentTargets.size;
+        }
+
+        // Start debug game
+        function startDebugGame() {
+            debugLog('=== STARTING DEBUG GAME ===');
+            
+            // Clear existing
+            if (spawnInterval) {
+                clearTimeout(spawnInterval);
+                spawnInterval = null;
+                debugLog('Cleared existing spawn interval');
+            }
+            
+            // Reset state
+            gameActive = true;
+            timeLeft = 30;
+            currentTargets.clear();
+            
+            // Clear targets
+            document.querySelectorAll('.target').forEach(target => target.remove());
+            
+            updateDebugInfo();
+            debugLog('Game state reset');
+            
+            // Start spawning
+            spawnTargets();
+            debugLog('Started spawning targets');
+        }
+
+        // Spawn targets
+        function spawnTargets() {
+            if (!gameActive) {
+                debugLog('Spawn cancelled - game not active');
+                return;
+            }
+
+            debugLog(`Attempting to spawn target...`);
+            
+            const delay = 1000; // 1 second for testing
+            
+            spawnInterval = setTimeout(() => {
+                if (!gameActive) {
+                    debugLog('Spawn timeout cancelled - game not active');
+                    return;
+                }
+                
+                const holes = Array.from(document.querySelectorAll('.hole'));
+                const availableHoles = holes.filter(hole => !currentTargets.has(hole.dataset.index));
+                
+                debugLog(`Total holes: ${holes.length}, Available: ${availableHoles.length}`);
+                
+                if (availableHoles.length > 0) {
+                    const hole = availableHoles[0]; // Use first available for testing
+                    spawnTarget(hole);
+                } else {
+                    debugLog('No available holes');
+                }
+                
+                // Continue spawning
+                spawnTargets();
+            }, delay);
+            
+            debugLog(`Next spawn scheduled in ${delay}ms`);
+        }
+
+        // Spawn single target
+        function spawnTarget(hole) {
+            const targetType = targetTypes.bug; // Always bug for testing
+            const target = document.createElement('div');
+            target.className = `target ${targetType.class}`;
+            target.textContent = targetType.emoji;
+            
+            debugLog(`Creating target with class: ${target.className}`);
+            
+            // Clear hole and add target
+            hole.innerHTML = '';
+            hole.appendChild(target);
+            currentTargets.add(hole.dataset.index);
+            
+            debugLog(`Target added to hole ${hole.dataset.index}`);
+            
+            // Show target immediately
+            setTimeout(() => {
+                target.classList.add('up');
+                debugLog(`Target should be visible now. Classes: ${target.className}`);
+                updateDebugInfo();
+            }, 10);
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                if (target.parentNode) {
+                    target.classList.remove('up');
+                    setTimeout(() => {
+                        if (target.parentNode) {
+                            target.remove();
+                            currentTargets.delete(hole.dataset.index);
+                            debugLog(`Target removed from hole ${hole.dataset.index}`);
+                            updateDebugInfo();
+                        }
+                    }, 300);
+                }
+            }, 3000);
+        }
+
+        // Test functions
+        function spawnTestTarget() {
+            const holes = document.querySelectorAll('.hole');
+            if (holes.length > 0) {
+                spawnTarget(holes[0]);
+            }
+        }
+
+        function clearAllTargets() {
+            document.querySelectorAll('.target').forEach(target => target.remove());
+            currentTargets.clear();
+            updateDebugInfo();
+            debugLog('All targets cleared');
+        }
+
+        function toggleGameActive() {
+            gameActive = !gameActive;
+            updateDebugInfo();
+            debugLog(`Game active toggled to: ${gameActive}`);
+        }
+
+        // Initialize when page loads
+        window.onload = function() {
+            debugLog('Page loaded');
+            initGrid();
+            updateDebugInfo();
+        };
+    </script>
+</body>
+</html>
